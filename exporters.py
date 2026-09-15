@@ -33,11 +33,11 @@ COLUMN_LABELS_ES = {
     "introduction": "Descripción",
 }
 
-# Teselas de CartoDB en vez de las de OpenStreetMap: son gratuitas para uso personal/bajo
-# volumen y no bloquean a esta app (a diferencia de tile.openstreetmap.org, que devuelve
-# 403 "Access blocked" a apps que no cumplen con su política de uso).
-MAP_TILES_URL = "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
-MAP_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO"
+# Teselas de OpenStreetMap France: son gratuitas y no piden API key (a diferencia de
+# CartoDB, que ahora exige una), y no bloquean a esta app como sí hace directamente
+# tile.openstreetmap.org con clientes que no cumplen su política de uso.
+MAP_TILES_URL = "https://a.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
+MAP_ATTRIBUTION = "&copy; OpenStreetMap contributors"
 MAP_TILE_HEADERS = {"User-Agent": "Google-Maps-Scrapper/1.0"}
 
 
