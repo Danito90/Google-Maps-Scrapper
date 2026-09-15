@@ -2,9 +2,9 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
-from playwright.sync_api import Browser, Page, sync_playwright
+from playwright.sync_api import Browser, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 LAT_LNG_PATTERN = re.compile(r"@(-?\d+\.\d+),(-?\d+\.\d+)")
 # El href del listado incluye la coordenada exacta del negocio como "!3d<lat>!4d<lng>",
@@ -212,32 +212,109 @@ def extract_place(page: Page, browser: Browser, buscar_email: bool = False) -> P
     return place
 
 
-def scrape_places(search_for: str, total: int, headless: bool = False, buscar_email: bool = False) -> List[Place]:
+PLACE_LINK_XPATH = '//a[contains(@href, "https://www.google.com/maps/place")]'
+# Textos de los botones del diálogo de consentimiento de cookies que Google muestra a
+# veces (varía según región/idioma); si no aparece ninguno, simplemente no hay diálogo.
+_BOTONES_CONSENTIMIENTO = ["Aceptar todo", "Rechazar todo", "Accept all", "Reject all", "I agree"]
+# Texto que muestra Google cuando la búsqueda no encuentra ningún resultado.
+_SIN_RESULTADOS_XPATH = (
+    '//*[contains(text(), "no puede encontrar") or contains(text(), "can\'t find") '
+    'or contains(text(), "No se han encontrado resultados")]'
+)
+
+
+def _aceptar_cookies(page: Page):
+    """Cierra el diálogo de consentimiento de cookies si Google lo muestra."""
+    for texto in _BOTONES_CONSENTIMIENTO:
+        try:
+            boton = page.get_by_role("button", name=texto)
+            if boton.count() > 0:
+                boton.first.click(timeout=3000)
+                page.wait_for_timeout(500)
+                return
+        except Exception:
+            continue
+
+
+def _buscar_en_maps(page: Page, search_for: str, total: int) -> List[Page]:
+    """Escribe la búsqueda y espera resultados. Devuelve la lista de <a> de cada listado
+    (vacía si Google no encontró nada, o con un único elemento sintético si Google navegó
+    directo a un solo resultado en vez de mostrar una lista).
+    """
+    page.locator("//form[contains(@jsaction,'searchboxFormSubmit')]//input[@name='q']").fill(search_for)
+    page.keyboard.press("Enter")
+
+    try:
+        page.wait_for_selector(f"{PLACE_LINK_XPATH} | {_SIN_RESULTADOS_XPATH}", timeout=30000)
+    except PlaywrightTimeoutError:
+        raise RuntimeError(
+            f'Google Maps no respondió para la búsqueda "{search_for}" (tardó demasiado). '
+            "Probá de nuevo en unos segundos o con otro término de búsqueda."
+        )
+
+    if page.locator(PLACE_LINK_XPATH).count() > 0:
+        try:
+            # Solo para posicionar el mouse sobre la lista y que el scroll siguiente
+            # afecte al panel de resultados (y no al mapa). force=True evita que una
+            # miniatura superpuesta bloquee la acción con un timeout innecesario.
+            page.hover(PLACE_LINK_XPATH, timeout=5000, force=True)
+        except PlaywrightTimeoutError:
+            pass
+        previously_counted = 0
+        while True:
+            page.mouse.wheel(0, 10000)
+            page.wait_for_selector(PLACE_LINK_XPATH)
+            found = page.locator(PLACE_LINK_XPATH).count()
+            logging.info(f"Encontrados hasta ahora: {found}")
+            if found >= total:
+                break
+            if found == previously_counted:
+                logging.info("Se llegó a todos los resultados disponibles")
+                break
+            previously_counted = found
+        return page.locator(PLACE_LINK_XPATH).all()[:total]
+
+    if "/maps/place/" in page.url:
+        # Google encontró una coincidencia tan fuerte que navegó directo a la ficha del
+        # negocio, sin mostrar una lista de resultados con links.
+        logging.info("Google navegó directo a un único resultado.")
+        return []
+
+    logging.warning(f'Google Maps no encontró resultados para "{search_for}".')
+    return []
+
+
+def scrape_places(
+    search_for: str,
+    total: int,
+    headless: bool = False,
+    buscar_email: bool = False,
+    on_progress: Optional[Callable[[int, int], None]] = None,
+) -> List[Place]:
     setup_logging()
     places: List[Place] = []
+    if on_progress:
+        on_progress(0, total)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
         try:
             page.goto("https://www.google.com/maps/@32.9817464,70.1930781,3.67z?", timeout=60000)
             page.wait_for_timeout(1000)
-            page.locator("//form[contains(@jsaction,'searchboxFormSubmit')]//input[@name='q']").fill(search_for)
-            page.keyboard.press("Enter")
-            page.wait_for_selector('//a[contains(@href, "https://www.google.com/maps/place")]')
-            page.hover('//a[contains(@href, "https://www.google.com/maps/place")]')
-            previously_counted = 0
-            while True:
-                page.mouse.wheel(0, 10000)
-                page.wait_for_selector('//a[contains(@href, "https://www.google.com/maps/place")]')
-                found = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
-                logging.info(f"Encontrados hasta ahora: {found}")
-                if found >= total:
-                    break
-                if found == previously_counted:
-                    logging.info("Se llegó a todos los resultados disponibles")
-                    break
-                previously_counted = found
-            listing_links = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:total]
+            _aceptar_cookies(page)
+
+            listing_links = _buscar_en_maps(page, search_for, total)
+
+            if not listing_links and "/maps/place/" in page.url:
+                # Resultado único: la propia página actual ya es la ficha del negocio.
+                place = extract_place(page, browser, buscar_email=buscar_email)
+                place.google_maps_url = page.url
+                if place.name:
+                    places.append(place)
+                    if on_progress:
+                        on_progress(len(places), total)
+                return places
+
             # El href original trae la coordenada exacta del negocio (!3d..!4d..); se guarda
             # antes de resolver el contenedor padre, que es lo que se termina clickeando.
             hrefs = [link.get_attribute("href") or "" for link in listing_links]
@@ -261,6 +338,9 @@ def scrape_places(search_for: str, total: int, headless: bool = False, buscar_em
                         logging.warning(f"No se encontró nombre para el listado {idx + 1}, se omite.")
                 except Exception as e:
                     logging.warning(f"Falló la extracción del listado {idx + 1}: {e}")
+                finally:
+                    if on_progress:
+                        on_progress(len(places), total)
         finally:
             browser.close()
     return places

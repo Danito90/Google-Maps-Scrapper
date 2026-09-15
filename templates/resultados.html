@@ -16,10 +16,20 @@
             <p>No se encontraron resultados.</p>
         {% else %}
             <div class="descargas">
-                <a class="boton" href="{{ url_for('descargar_csv') }}">Descargar CSV (todos los campos)</a>
-                <a class="boton" href="{{ url_for('descargar_pdf') }}">Descargar PDF (resumen)</a>
-                <p class="ayuda">El PDF es un resumen; para todos los campos usá el CSV.</p>
+                <a class="boton" href="{{ url_for('descargar_csv') }}">Descargar CSV</a>
+                <a class="boton" href="{{ url_for('descargar_xlsx') }}">Descargar Excel (.xlsx)</a>
+                {% if hay_mapa %}
+                    <a class="boton" href="{{ url_for('descargar_mapa') }}">Descargar mapa (imagen)</a>
+                {% endif %}
+                <p class="ayuda">El CSV y el Excel incluyen todos los campos.</p>
             </div>
+
+            {% if hay_mapa %}
+                <h2>Mapa de resultados</h2>
+                <iframe class="mapa" src="{{ url_for('ver_mapa') }}"></iframe>
+            {% else %}
+                <p class="ayuda">No hay coordenadas disponibles para mostrar el mapa de estos resultados.</p>
+            {% endif %}
 
             <div class="tabla-scroll">
                 <table>

@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0;url={{ url_for('ejecutar') }}">
     <title>Buscando...</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
 </head>
@@ -11,6 +10,33 @@
         <h1>Buscando...</h1>
         <p>Se está abriendo el navegador y recorriendo los resultados de Google Maps.</p>
         <p>Esto puede tardar unos minutos según la cantidad de resultados pedida. No cierres esta ventana.</p>
+
+        <progress id="barra-progreso" max="1" value="0"></progress>
+        <p id="texto-progreso" class="ayuda">Iniciando búsqueda...</p>
     </div>
+
+    <script>
+        const barra = document.getElementById("barra-progreso");
+        const texto = document.getElementById("texto-progreso");
+
+        async function actualizarProgreso() {
+            try {
+                const respuesta = await fetch("{{ url_for('progreso') }}");
+                const datos = await respuesta.json();
+                barra.max = datos.total || 1;
+                barra.value = datos.actual || 0;
+                texto.textContent = `${datos.actual} de ${datos.total} resultados encontrados`;
+                if (datos.terminado) {
+                    window.location.href = "{{ url_for('resultados') }}";
+                    return;
+                }
+            } catch (e) {
+                // Si falla una consulta puntual, se reintenta en el próximo intervalo.
+            }
+            setTimeout(actualizarProgreso, 1000);
+        }
+
+        actualizarProgreso();
+    </script>
 </body>
 </html>

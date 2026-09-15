@@ -77,9 +77,10 @@ Y abrí [http://127.0.0.1:5000](http://127.0.0.1:5000) en el navegador. Desde ah
 - Ingresar el término de búsqueda y la cantidad de resultados.
 - Activar/desactivar la búsqueda de email en el sitio web de cada negocio.
 - Elegir modo invisible (headless) o ver el navegador mientras scrapea.
-- Descargar los resultados en **CSV** (todos los campos) o **PDF** (resumen para imprimir).
+- Ver un **mapa interactivo** con un marcador por negocio (clic para ver nombre/dirección/teléfono).
+- Descargar los resultados en **CSV** o **Excel (.xlsx)** (todos los campos), y el mapa como **imagen (.png)**.
 
-La búsqueda corre de forma sincrónica: se muestra una página de "Buscando..." mientras se procesa, y al terminar se muestra la tabla de resultados.
+La búsqueda corre de forma sincrónica: se muestra una página de "Buscando..." mientras se procesa, y al terminar se muestra el mapa y la tabla de resultados.
 
 ## Línea de comandos (CLI)
 
@@ -95,17 +96,19 @@ python main.py -s "Restaurantes turcos en Toronto Canada" -t 20
 - `--append`: agrega los resultados al archivo existente en vez de sobrescribirlo
 - `--headless`: corre el navegador sin ventana visible
 - `--email`: busca el email en el sitio web de cada negocio (más lento)
-- `--pdf RUTA`: además del CSV, exporta un resumen en PDF a la ruta indicada
+- `--xlsx RUTA`: además del CSV, exporta también a Excel (.xlsx) en la ruta indicada
+- `--mapa RUTA.html`: genera un mapa interactivo (Leaflet) con los puntos scrapeados
+- `--mapa-imagen RUTA.png`: genera una imagen (foto) del mapa con los puntos scrapeados
 
-Ejemplo agregando resultados a un CSV existente y exportando también a PDF:
+Ejemplo agregando resultados a un CSV existente y generando también Excel y una imagen del mapa:
 ```bash
-python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.csv --append --pdf restaurantes.pdf
+python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.csv --append --xlsx restaurantes.xlsx --mapa-imagen restaurantes_mapa.png
 ```
 
 ## Notas
 - Por defecto el CLI abre una ventana visible del navegador (útil para depurar); usá `--headless` para ocultarla. La interfaz web usa headless por defecto.
 - El CSV se guarda codificado en UTF-8 con BOM (`utf-8-sig`) para que Excel en Windows muestre bien tildes y la ñ.
-- El PDF es un resumen de las columnas más relevantes (pensado para imprimir); para ver todos los campos usá el CSV.
+- El mapa usa teselas de CartoDB (no las de `tile.openstreetmap.org` directamente), ya que esas suelen bloquear el acceso a apps que no cumplen con su política de uso.
 - El DOM de Google Maps puede cambiar y romper el scraper. Si deja de funcionar, revisá los XPaths en `scraper.py`.
 - Evitá correr muchas búsquedas seguidas en poco tiempo para no ser bloqueado por Google.
 

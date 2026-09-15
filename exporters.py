@@ -1,10 +1,12 @@
+import html
 import logging
 import os
 from dataclasses import asdict, fields
 from typing import List
 
+import folium
 import pandas as pd
-from fpdf import FPDF
+from staticmap import CircleMarker, StaticMap
 
 from scraper import Place
 
@@ -31,31 +33,12 @@ COLUMN_LABELS_ES = {
     "introduction": "Descripción",
 }
 
-# Columnas mostradas en el resumen PDF (una tabla con las 18 columnas completas sería
-# ilegible incluso en A4 apaisado). El CSV siempre incluye todas las columnas.
-PDF_SUMMARY_COLUMNS = [
-    "name",
-    "place_type",
-    "address",
-    "phone_number",
-    "email",
-    "reviews_average",
-    "reviews_count",
-    "business_status",
-    "opens_at",
-]
-
-_PDF_REPLACEMENTS = {
-    "‘": "'", "’": "'", "“": '"', "”": '"',
-    "–": "-", "—": "-", "…": "...",
-}
-
-
-def _pdf_safe(texto) -> str:
-    texto = "" if texto is None else str(texto)
-    for original, reemplazo in _PDF_REPLACEMENTS.items():
-        texto = texto.replace(original, reemplazo)
-    return texto.encode("latin-1", "replace").decode("latin-1")
+# Teselas de CartoDB en vez de las de OpenStreetMap: son gratuitas para uso personal/bajo
+# volumen y no bloquean a esta app (a diferencia de tile.openstreetmap.org, que devuelve
+# 403 "Access blocked" a apps que no cumplen con su política de uso).
+MAP_TILES_URL = "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+MAP_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO"
+MAP_TILE_HEADERS = {"User-Agent": "Google-Maps-Scrapper/1.0"}
 
 
 def _places_to_dataframe(places: List[Place]) -> pd.DataFrame:
@@ -76,39 +59,71 @@ def save_places_to_csv(places: List[Place], output_path: str = "result.csv", app
     logging.info(f"Guardados {len(df)} lugares en {output_path} (agregar={append})")
 
 
-def save_places_to_pdf(places: List[Place], output_path: str = "result.pdf"):
+def save_places_to_excel(places: List[Place], output_path: str = "result.xlsx"):
     df = _places_to_dataframe(places)
     if df.empty:
         logging.warning("No hay datos para guardar. La tabla está vacía.")
         return
-
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=10)
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, _pdf_safe("Informe de resultados - Google Maps"), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 6, _pdf_safe("Resumen: para ver todos los campos, use la exportación a CSV."), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
-
-    columnas = [c for c in PDF_SUMMARY_COLUMNS if c in df.columns]
-    ancho_pagina = pdf.w - 2 * pdf.l_margin
-    ancho_columna = ancho_pagina / len(columnas)
-
-    pdf.set_font("Helvetica", "B", 8)
-    for columna in columnas:
-        pdf.cell(ancho_columna, 8, _pdf_safe(COLUMN_LABELS_ES.get(columna, columna)), border=1)
-    pdf.ln()
-
-    pdf.set_font("Helvetica", "", 7)
-    for _, row in df.iterrows():
-        for columna in columnas:
-            valor = row[columna]
-            texto = "" if pd.isna(valor) else _pdf_safe(valor)
-            if len(texto) > 40:
-                texto = texto[:37] + "..."
-            pdf.cell(ancho_columna, 7, texto, border=1)
-        pdf.ln()
-
-    pdf.output(output_path)
+    df = df.rename(columns=COLUMN_LABELS_ES)
+    df.to_excel(output_path, index=False, engine="openpyxl")
     logging.info(f"Guardados {len(df)} lugares en {output_path}")
+
+
+def save_places_map(places: List[Place], output_path: str = "mapa.html") -> bool:
+    """Genera un mapa interactivo (Leaflet) para consultar en el navegador: zoom, clic en
+    cada marcador para ver nombre/dirección/teléfono. Devuelve False si no hay coordenadas.
+    """
+    puntos = [p for p in places if p.latitude is not None and p.longitude is not None]
+    if not puntos:
+        logging.warning("No hay coordenadas disponibles para generar el mapa.")
+        return False
+
+    lat_prom = sum(p.latitude for p in puntos) / len(puntos)
+    lng_prom = sum(p.longitude for p in puntos) / len(puntos)
+    mapa = folium.Map(
+        location=[lat_prom, lng_prom],
+        zoom_start=13,
+        tiles=MAP_TILES_URL,
+        attr=MAP_ATTRIBUTION,
+    )
+
+    for place in puntos:
+        popup_html = (
+            f"<b>{html.escape(place.name)}</b><br>"
+            f"{html.escape(place.address)}<br>"
+            f"{html.escape(place.phone_number)}"
+        )
+        folium.Marker(
+            [place.latitude, place.longitude],
+            popup=folium.Popup(popup_html, max_width=250),
+            tooltip=html.escape(place.name),
+        ).add_to(mapa)
+
+    if len(puntos) > 1:
+        mapa.fit_bounds([[p.latitude, p.longitude] for p in puntos])
+
+    mapa.save(output_path)
+    logging.info(f"Guardado el mapa con {len(puntos)} puntos en {output_path}")
+    return True
+
+
+def save_places_map_image(places: List[Place], output_path: str = "mapa.png", width: int = 900, height: int = 650) -> bool:
+    """Genera una imagen estática (foto) del mapa con los puntos, pensada para descargar.
+
+    A diferencia de save_places_map, no es interactiva: es la versión que se ofrece en el
+    botón de descarga. Devuelve False si no hay coordenadas.
+    """
+    puntos = [p for p in places if p.latitude is not None and p.longitude is not None]
+    if not puntos:
+        logging.warning("No hay coordenadas disponibles para generar la imagen del mapa.")
+        return False
+
+    mapa = StaticMap(width, height, url_template=MAP_TILES_URL, headers=MAP_TILE_HEADERS)
+    for place in puntos:
+        mapa.add_marker(CircleMarker((place.longitude, place.latitude), "#1a73e8", 14))
+        mapa.add_marker(CircleMarker((place.longitude, place.latitude), "#ffffff", 5))
+
+    imagen = mapa.render()
+    imagen.save(output_path)
+    logging.info(f"Guardada la imagen del mapa con {len(puntos)} puntos en {output_path}")
+    return True

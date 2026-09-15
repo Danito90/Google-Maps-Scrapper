@@ -1,25 +1,70 @@
 import os
+import threading
 from dataclasses import asdict
 
-from flask import Flask, redirect, render_template, request, send_file, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
-from exporters import COLUMN_LABELS_ES, COLUMN_ORDER, save_places_to_csv, save_places_to_pdf
+from exporters import (
+    COLUMN_LABELS_ES,
+    COLUMN_ORDER,
+    save_places_map,
+    save_places_map_image,
+    save_places_to_csv,
+    save_places_to_excel,
+)
 from scraper import scrape_places
 
 app = Flask(__name__)
 
 EXPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
 CSV_PATH = os.path.join(EXPORTS_DIR, "resultados.csv")
-PDF_PATH = os.path.join(EXPORTS_DIR, "resultados.pdf")
+XLSX_PATH = os.path.join(EXPORTS_DIR, "resultados.xlsx")
+MAPA_PATH = os.path.join(EXPORTS_DIR, "mapa.html")
+MAPA_IMAGEN_PATH = os.path.join(EXPORTS_DIR, "mapa.png")
 
 ESTADO = {
     "status": "vacio",
     "params": {},
     "places": [],
     "csv_path": None,
-    "pdf_path": None,
+    "xlsx_path": None,
+    "mapa_path": None,
+    "mapa_imagen_path": None,
     "error": None,
 }
+
+PROGRESO = {"actual": 0, "total": 0}
+
+
+def _ejecutar_busqueda(params):
+    """Corre en un hilo de fondo para no bloquear el servidor y poder reportar progreso."""
+    PROGRESO["actual"] = 0
+    PROGRESO["total"] = params.get("total", 0)
+    try:
+        def on_progress(actual, total):
+            PROGRESO["actual"] = actual
+            PROGRESO["total"] = total
+
+        places = scrape_places(**params, on_progress=on_progress)
+        ESTADO["places"] = places
+        ESTADO["csv_path"] = None
+        ESTADO["xlsx_path"] = None
+        ESTADO["mapa_path"] = None
+        ESTADO["mapa_imagen_path"] = None
+        if places:
+            os.makedirs(EXPORTS_DIR, exist_ok=True)
+            save_places_to_csv(places, CSV_PATH)
+            save_places_to_excel(places, XLSX_PATH)
+            ESTADO["csv_path"] = CSV_PATH
+            ESTADO["xlsx_path"] = XLSX_PATH
+            if save_places_map(places, MAPA_PATH):
+                ESTADO["mapa_path"] = MAPA_PATH
+            if save_places_map_image(places, MAPA_IMAGEN_PATH):
+                ESTADO["mapa_imagen_path"] = MAPA_IMAGEN_PATH
+        ESTADO["status"] = "listo"
+    except Exception as e:
+        ESTADO["error"] = str(e)
+        ESTADO["status"] = "error"
 
 
 @app.route("/")
@@ -36,44 +81,33 @@ def buscar():
         total = 1
     total = max(1, total)
 
-    ESTADO["params"] = {
+    params = {
         "search_for": busqueda,
         "total": total,
         "headless": request.form.get("headless") == "on",
         "buscar_email": request.form.get("buscar_email") == "on",
     }
-    ESTADO["status"] = "pendiente"
+    ESTADO["params"] = params
+    ESTADO["status"] = "corriendo"
     ESTADO["error"] = None
+    threading.Thread(target=_ejecutar_busqueda, args=(params,), daemon=True).start()
     return redirect(url_for("buscando"))
 
 
 @app.route("/buscando")
 def buscando():
-    if ESTADO["status"] == "listo":
+    if ESTADO["status"] in ("listo", "error"):
         return redirect(url_for("resultados"))
     return render_template("buscando.html")
 
 
-@app.route("/ejecutar")
-def ejecutar():
-    if ESTADO["status"] != "pendiente":
-        return redirect(url_for("formulario"))
-    try:
-        places = scrape_places(**ESTADO["params"])
-        ESTADO["places"] = places
-        ESTADO["csv_path"] = None
-        ESTADO["pdf_path"] = None
-        if places:
-            os.makedirs(EXPORTS_DIR, exist_ok=True)
-            save_places_to_csv(places, CSV_PATH)
-            save_places_to_pdf(places, PDF_PATH)
-            ESTADO["csv_path"] = CSV_PATH
-            ESTADO["pdf_path"] = PDF_PATH
-        ESTADO["status"] = "listo"
-    except Exception as e:
-        ESTADO["error"] = str(e)
-        ESTADO["status"] = "error"
-    return redirect(url_for("resultados"))
+@app.route("/progreso")
+def progreso():
+    return jsonify(
+        actual=PROGRESO["actual"],
+        total=PROGRESO["total"],
+        terminado=ESTADO["status"] in ("listo", "error"),
+    )
 
 
 @app.route("/resultados")
@@ -85,7 +119,15 @@ def resultados():
         etiquetas=COLUMN_LABELS_ES,
         error=ESTADO["error"],
         hay_resultados=ESTADO["status"] == "listo" and bool(ESTADO["places"]),
+        hay_mapa=bool(ESTADO["mapa_path"]),
     )
+
+
+@app.route("/mapa")
+def ver_mapa():
+    if not ESTADO["mapa_path"] or not os.path.isfile(ESTADO["mapa_path"]):
+        return redirect(url_for("formulario"))
+    return send_file(ESTADO["mapa_path"])
 
 
 @app.route("/descargar/csv")
@@ -95,12 +137,19 @@ def descargar_csv():
     return send_file(ESTADO["csv_path"], as_attachment=True, download_name="resultados_google_maps.csv")
 
 
-@app.route("/descargar/pdf")
-def descargar_pdf():
-    if not ESTADO["pdf_path"] or not os.path.isfile(ESTADO["pdf_path"]):
+@app.route("/descargar/xlsx")
+def descargar_xlsx():
+    if not ESTADO["xlsx_path"] or not os.path.isfile(ESTADO["xlsx_path"]):
         return redirect(url_for("formulario"))
-    return send_file(ESTADO["pdf_path"], as_attachment=True, download_name="resultados_google_maps.pdf")
+    return send_file(ESTADO["xlsx_path"], as_attachment=True, download_name="resultados_google_maps.xlsx")
+
+
+@app.route("/descargar/mapa")
+def descargar_mapa():
+    if not ESTADO["mapa_imagen_path"] or not os.path.isfile(ESTADO["mapa_imagen_path"]):
+        return redirect(url_for("formulario"))
+    return send_file(ESTADO["mapa_imagen_path"], as_attachment=True, download_name="mapa_google_maps.png")
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, threaded=True)
