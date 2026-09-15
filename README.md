@@ -1,11 +1,9 @@
 # Google-Maps-Scrapper
-This Python script utilizes the Playwright library to perform web scraping and data extraction from Google Maps. It is particularly designed for obtaining information about businesses, including their name, address, website, phone number, reviews, and more.
 
-## Read Prerequistes
-Latest python was not used and is not suggested
+Este proyecto usa Playwright para hacer web scraping de Google Maps y extraer información de negocios: nombre, dirección, teléfono, sitio web, email, coordenadas, reseñas y más. Incluye una interfaz web (Flask) para lanzar búsquedas desde el navegador, además de la línea de comandos original.
 
 <br>
-To do a custom web scraping project you can find me on Upwork or on Linkedin<br><br>
+Para un proyecto de web scraping a medida me pueden encontrar en Upwork o LinkedIn<br><br>
 
 <a href="https://www.upwork.com/freelancers/~01dbb4d47d167c2d43" target="_blank">
 <img src=https://img.shields.io/badge/Upwork-6FDA44?&style=for-the-badge&logo=medium&logoColor=white alt=medium style="margin-bottom: 5px;" />
@@ -16,88 +14,100 @@ To do a custom web scraping project you can find me on Upwork or on Linkedin<br>
 </a>
 
 
-## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Multiple Branches](#multiple-branches)
-- [Key Features](#key-features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Example](#example)
-- [Notes](#notes)
-- [Video Example](#video-example)
+## Índice
+- [Requisitos previos](#requisitos-previos)
+- [Campos extraídos](#campos-extraídos)
+- [Instalación](#instalación)
+- [Interfaz web](#interfaz-web)
+- [Línea de comandos (CLI)](#línea-de-comandos-cli)
+- [Notas](#notas)
+- [Licencia](#licencia)
 
-## Prerequisites
-- Python 3.8 or 3.9 (Python 3.10+ may not be compatible with some dependencies)
-- Google Chrome or Chromium browser installed (for Playwright)
+## Requisitos previos
+- Python 3.9 o superior.
+- No se necesita tener Google Chrome instalado: Playwright usa su propio Chromium (ver instalación).
 
-## Multiple Branches
-The repo currently has 3 branches
-- Main
-- Latest Libraries (The one that works with latest libraries, can cause issues. Prefer Main)
-- Linux ( Linux Support if main branch does not work correctly)
+## Campos extraídos
+Por cada negocio se intenta obtener:
 
+| Campo | Descripción |
+|---|---|
+| Nombre | Nombre del negocio |
+| Categoría | Tipo de negocio (ej. "Panadería") |
+| Dirección | Dirección completa |
+| Teléfono | Número de teléfono |
+| Sitio web | URL del sitio web, si figura en la ficha |
+| Email | Opcional: se obtiene visitando el sitio web del negocio (ver más abajo) |
+| Cantidad de reseñas / Calificación promedio | Reputación en Google |
+| Rango de precios | Cuando Google lo muestra (ej. "$$") |
+| Estado del negocio | Abierto / Cerrado temporalmente / Cerrado permanentemente |
+| Horario | Horario de apertura |
+| Compra en tienda / Retiro en tienda / Entrega a domicilio | Servicios detectados |
+| Latitud / Longitud | Coordenadas exactas del negocio |
+| URL de Google Maps | Enlace directo a la ficha del negocio |
+| Descripción | Introducción/descripción del negocio, si existe |
 
-## Key Features
-- Data Scraping: The script scrapes data from Google Maps listings, extracting valuable information about businesses, such as their name, address, website, and contact details.
+**Nota sobre el email**: Google Maps no expone el email directamente. Cuando se activa la opción "Buscar email en sitio web", el scraper visita el sitio del negocio y busca un enlace `mailto:` o un email en el texto de la página. Es más lento y no siempre encuentra resultados; por eso está desactivado por defecto.
 
-- Review Analysis: It extracts review counts and average ratings, providing insights into businesses' online reputation.
+## Instalación
 
-- Business Type Detection: The script identifies whether a business offers in-store shopping, in-store pickup, or delivery services.
-
-- Operating Hours: It extracts information about the business's operating hours.
-
-- Introduction Extraction: The script also scrapes introductory information about the businesses when available.
-
-- Data Cleansing: It cleanses and organizes the scraped data, removing redundant or unnecessary columns.
-
-- CSV Export: The cleaned data is exported to a CSV file for further analysis or integration with other tools.
-
-## Installation
-
-1. Clone this repository:
+1. Cloná este repositorio:
    ```bash
    git clone https://github.com/zohaibbashir/Google-Maps-Scrapper.git
-   cd google-maps-scraper
+   cd Google-Maps-Scrapper
    ```
-2. Install Python dependencies:
+2. Instalá las dependencias de Python:
    ```bash
    pip install -r requirements.txt
    ```
-3. Install Playwright browsers:
+3. Instalá el navegador Chromium que usa Playwright (una sola vez):
    ```bash
-   playwright install
+   playwright install chromium
    ```
 
-## Usage
+## Interfaz web
 
-Run the script with your desired search term and number of results:
+Para usar la interfaz gráfica en el navegador:
 
 ```bash
-python main.py -s "Turkish Restaurants in Toronto Canada" -t 20
+python app.py
 ```
 
-- `-s` or `--search`: Search query for Google Maps (default: "turkish stores in toronto Canada")
-- `-t` or `--total`: Number of results to scrape (default: 1)
-- `-o` or `--output`: Output CSV file path (default: result.csv)
-- `--append`: Append results to the output file instead of overwriting (default: off)
+Y abrí [http://127.0.0.1:5000](http://127.0.0.1:5000) en el navegador. Desde ahí podés:
+- Ingresar el término de búsqueda y la cantidad de resultados.
+- Activar/desactivar la búsqueda de email en el sitio web de cada negocio.
+- Elegir modo invisible (headless) o ver el navegador mientras scrapea.
+- Descargar los resultados en **CSV** (todos los campos) o **PDF** (resumen para imprimir).
 
-## Example
+La búsqueda corre de forma sincrónica: se muestra una página de "Buscando..." mientras se procesa, y al terminar se muestra la tabla de resultados.
 
-Append new results to an existing CSV file:
+## Línea de comandos (CLI)
+
+También se puede usar desde la terminal:
+
 ```bash
-python main.py -s "Turkish Restaurants in Toronto Canada" -t 20 -o toronto_turkish_restaurants.csv --append
+python main.py -s "Restaurantes turcos en Toronto Canada" -t 20
 ```
 
-The script will launch a browser, perform the search, and start scraping information. Progress will be displayed in the terminal, and results will be saved to the specified CSV file. If `--append` is used, new results will be added to the end of the file without removing previous data.
+- `-s` / `--search`: término de búsqueda (default: "turkish stores in toronto Canada")
+- `-t` / `--total`: cantidad de resultados a scrapear (default: 1)
+- `-o` / `--output`: ruta del CSV de salida (default: `result.csv`)
+- `--append`: agrega los resultados al archivo existente en vez de sobrescribirlo
+- `--headless`: corre el navegador sin ventana visible
+- `--email`: busca el email en el sitio web de cada negocio (más lento)
+- `--pdf RUTA`: además del CSV, exporta un resumen en PDF a la ruta indicada
 
-## Notes
-- The script opens a visible browser window (not headless) for scraping.
-- Google Maps DOM may change, which can break the script. If you encounter issues, update the XPaths in `main.py`.
-- Avoid running too many scrapes in a short period to prevent being blocked by Google.
+Ejemplo agregando resultados a un CSV existente y exportando también a PDF:
+```bash
+python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.csv --append --pdf restaurantes.pdf
+```
 
-## Video Example
+## Notas
+- Por defecto el CLI abre una ventana visible del navegador (útil para depurar); usá `--headless` para ocultarla. La interfaz web usa headless por defecto.
+- El CSV se guarda codificado en UTF-8 con BOM (`utf-8-sig`) para que Excel en Windows muestre bien tildes y la ñ.
+- El PDF es un resumen de las columnas más relevantes (pensado para imprimir); para ver todos los campos usá el CSV.
+- El DOM de Google Maps puede cambiar y romper el scraper. Si deja de funcionar, revisá los XPaths en `scraper.py`.
+- Evitá correr muchas búsquedas seguidas en poco tiempo para no ser bloqueado por Google.
 
-https://www.linkedin.com/posts/zohaibbashir_python-data-webscraping-activity-7093920891411062784-flEQ
-
-## License
+## Licencia
 MIT

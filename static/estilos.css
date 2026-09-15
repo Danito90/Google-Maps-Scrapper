@@ -1,0 +1,108 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, Arial, sans-serif;
+    background: #f5f6f8;
+    color: #202124;
+    margin: 0;
+    padding: 24px;
+}
+
+.contenedor {
+    max-width: 480px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px;
+    padding: 24px 32px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contenedor.ancho {
+    max-width: 1100px;
+}
+
+.contenedor.centrado {
+    text-align: center;
+}
+
+h1 {
+    font-size: 22px;
+    margin-top: 0;
+}
+
+label {
+    display: block;
+    margin-top: 16px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+label.checkbox {
+    font-weight: normal;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+input[type="text"],
+input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+button,
+.boton {
+    display: inline-block;
+    margin-top: 20px;
+    margin-right: 8px;
+    padding: 10px 18px;
+    background: #1a73e8;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+button:hover,
+.boton:hover {
+    background: #1558b3;
+}
+
+.ayuda {
+    font-size: 12px;
+    color: #666;
+}
+
+.error {
+    color: #b3261e;
+}
+
+.tabla-scroll {
+    overflow-x: auto;
+    margin-top: 16px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+th {
+    background: #f1f3f4;
+}

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Google Maps Scraper</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+</head>
+<body>
+    <div class="contenedor">
+        <h1>Google Maps Scraper</h1>
+        <p>Buscá negocios en Google Maps y exportá los resultados a CSV o PDF.</p>
+        <form action="{{ url_for('buscar') }}" method="post">
+            <label for="busqueda">Término de búsqueda</label>
+            <input type="text" id="busqueda" name="busqueda" placeholder="Ej: panaderías en Junín" required>
+
+            <label for="total">Cantidad de resultados</label>
+            <input type="number" id="total" name="total" min="1" value="5" required>
+
+            <label class="checkbox">
+                <input type="checkbox" name="buscar_email">
+                Buscar email en el sitio web de cada negocio (más lento, no siempre disponible)
+            </label>
+
+            <label class="checkbox">
+                <input type="checkbox" name="headless" checked>
+                Modo invisible (headless, sin ventana visible del navegador)
+            </label>
+
+            <button type="submit">Buscar</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultados - Google Maps Scraper</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
+</head>
+<body>
+    <div class="contenedor ancho">
+        <h1>Resultados</h1>
+        <p><a href="{{ url_for('formulario') }}">&larr; Nueva búsqueda</a></p>
+
+        {% if error %}
+            <p class="error">Ocurrió un error durante la búsqueda: {{ error }}</p>
+        {% elif not hay_resultados %}
+            <p>No se encontraron resultados.</p>
+        {% else %}
+            <div class="descargas">
+                <a class="boton" href="{{ url_for('descargar_csv') }}">Descargar CSV (todos los campos)</a>
+                <a class="boton" href="{{ url_for('descargar_pdf') }}">Descargar PDF (resumen)</a>
+                <p class="ayuda">El PDF es un resumen; para todos los campos usá el CSV.</p>
+            </div>
+
+            <div class="tabla-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            {% for columna in columnas %}
+                                <th>{{ etiquetas.get(columna, columna) }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for place in places %}
+                        <tr>
+                            {% for columna in columnas %}
+                                <td>{{ place[columna] if place[columna] is not none else "" }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
