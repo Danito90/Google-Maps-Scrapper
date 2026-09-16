@@ -47,11 +47,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: gmaps-scraper-linux-x64
+            name: gmaps-scraper-linux-x64V${{ needs.check-version.outputs.version }}
           - os: windows-latest
-            name: gmaps-scraper-windows-x64
+            name: gmaps-scraper-windows-x64V${{ needs.check-version.outputs.version }}
           - os: macos-14 # runner Apple Silicon nativo (arm64); macos-13 y anteriores son Intel
-            name: gmaps-scraper-macos-arm64
+            name: gmaps-scraper-macos-arm64V${{ needs.check-version.outputs.version }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
