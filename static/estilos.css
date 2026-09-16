@@ -81,8 +81,23 @@ button:hover,
     color: #666;
 }
 
+progress {
+    width: 100%;
+    height: 18px;
+    margin-top: 20px;
+    accent-color: #1a73e8;
+}
+
 .error {
     color: #b3261e;
+}
+
+iframe.mapa {
+    width: 100%;
+    height: 480px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 8px;
 }
 
 .tabla-scroll {

@@ -1,6 +1,16 @@
+import os
+from pathlib import Path
+
+# Debe fijarse antes de importar scraper (que importa playwright.sync_api): en un binario
+# empaquetado con PyInstaller, Playwright puede resolver su cache de navegadores de forma
+# menos predecible, así que se fuerza una ubicación determinística.
+if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
+    _base_navegadores = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "gmaps-scraper" / "ms-playwright"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(_base_navegadores)
+
 import argparse
 
-from exporters import save_places_to_csv, save_places_to_pdf
+from exporters import save_places_map, save_places_map_image, save_places_to_csv, save_places_to_excel
 from scraper import scrape_places
 
 
@@ -12,7 +22,9 @@ def main():
     parser.add_argument("--append", action="store_true", help="Agregar los resultados al archivo en vez de sobrescribirlo")
     parser.add_argument("--headless", action="store_true", help="Ejecutar el navegador sin ventana visible")
     parser.add_argument("--email", action="store_true", help="Buscar email en el sitio web de cada negocio (más lento)")
-    parser.add_argument("--pdf", type=str, default=None, help="Ruta opcional para exportar también un resumen en PDF")
+    parser.add_argument("--xlsx", type=str, default=None, help="Ruta opcional para exportar también a Excel (.xlsx)")
+    parser.add_argument("--mapa", type=str, default=None, help="Ruta opcional para generar un mapa interactivo (.html) con los puntos scrapeados")
+    parser.add_argument("--mapa-imagen", type=str, default=None, help="Ruta opcional para generar una imagen (.png) del mapa con los puntos scrapeados")
     args = parser.parse_args()
 
     search_for = args.search or "turkish stores in toronto Canada"
@@ -20,8 +32,12 @@ def main():
 
     places = scrape_places(search_for, total, headless=args.headless, buscar_email=args.email)
     save_places_to_csv(places, args.output, append=args.append)
-    if args.pdf:
-        save_places_to_pdf(places, args.pdf)
+    if args.xlsx:
+        save_places_to_excel(places, args.xlsx)
+    if args.mapa:
+        save_places_map(places, args.mapa)
+    if args.mapa_imagen:
+        save_places_map_image(places, args.mapa_imagen)
 
 
 if __name__ == "__main__":

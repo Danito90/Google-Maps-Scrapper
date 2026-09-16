@@ -21,6 +21,7 @@ Para un proyecto de web scraping a medida me pueden encontrar en Upwork o Linked
 - [Interfaz web](#interfaz-web)
 - [Línea de comandos (CLI)](#línea-de-comandos-cli)
 - [Notas](#notas)
+- [Generar un release (binarios)](#generar-un-release-binarios)
 - [Licencia](#licencia)
 
 ## Requisitos previos
@@ -77,9 +78,10 @@ Y abrí [http://127.0.0.1:5000](http://127.0.0.1:5000) en el navegador. Desde ah
 - Ingresar el término de búsqueda y la cantidad de resultados.
 - Activar/desactivar la búsqueda de email en el sitio web de cada negocio.
 - Elegir modo invisible (headless) o ver el navegador mientras scrapea.
-- Descargar los resultados en **CSV** (todos los campos) o **PDF** (resumen para imprimir).
+- Ver un **mapa interactivo** con un marcador por negocio (clic para ver nombre/dirección/teléfono).
+- Descargar los resultados en **CSV** o **Excel (.xlsx)** (todos los campos), y el mapa como **imagen (.png)**.
 
-La búsqueda corre de forma sincrónica: se muestra una página de "Buscando..." mientras se procesa, y al terminar se muestra la tabla de resultados.
+La búsqueda corre de forma sincrónica: se muestra una página de "Buscando..." mientras se procesa, y al terminar se muestra el mapa y la tabla de resultados.
 
 ## Línea de comandos (CLI)
 
@@ -95,19 +97,39 @@ python main.py -s "Restaurantes turcos en Toronto Canada" -t 20
 - `--append`: agrega los resultados al archivo existente en vez de sobrescribirlo
 - `--headless`: corre el navegador sin ventana visible
 - `--email`: busca el email en el sitio web de cada negocio (más lento)
-- `--pdf RUTA`: además del CSV, exporta un resumen en PDF a la ruta indicada
+- `--xlsx RUTA`: además del CSV, exporta también a Excel (.xlsx) en la ruta indicada
+- `--mapa RUTA.html`: genera un mapa interactivo (Leaflet) con los puntos scrapeados
+- `--mapa-imagen RUTA.png`: genera una imagen (foto) del mapa con los puntos scrapeados
 
-Ejemplo agregando resultados a un CSV existente y exportando también a PDF:
+Ejemplo agregando resultados a un CSV existente y generando también Excel y una imagen del mapa:
 ```bash
-python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.csv --append --pdf restaurantes.pdf
+python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.csv --append --xlsx restaurantes.xlsx --mapa-imagen restaurantes_mapa.png
 ```
 
 ## Notas
 - Por defecto el CLI abre una ventana visible del navegador (útil para depurar); usá `--headless` para ocultarla. La interfaz web usa headless por defecto.
 - El CSV se guarda codificado en UTF-8 con BOM (`utf-8-sig`) para que Excel en Windows muestre bien tildes y la ñ.
-- El PDF es un resumen de las columnas más relevantes (pensado para imprimir); para ver todos los campos usá el CSV.
+- El mapa usa teselas de OpenStreetMap France (`tile.openstreetmap.fr`), gratuitas y sin API key, en vez de `tile.openstreetmap.org` directamente (que bloquea a apps que no cumplen con su política de uso) o CartoDB (que ahora exige API key).
 - El DOM de Google Maps puede cambiar y romper el scraper. Si deja de funcionar, revisá los XPaths en `scraper.py`.
 - Evitá correr muchas búsquedas seguidas en poco tiempo para no ser bloqueado por Google.
+
+## Generar un release (binarios)
+
+El workflow `.github/workflows/release.yml` compila `app.py` (la interfaz web) como un binario standalone para Linux, Windows y macOS (Apple Silicon), y publica un GitHub Release con los tres adjuntos. Al abrir el binario se levanta el servidor y se abre solo el navegador en `http://127.0.0.1:5000` — queda corriendo (con una consola visible) hasta que se cierra la ventana. Chromium no viene empaquetado (pesaría cientos de MB): se instala solo la primera vez que se hace una búsqueda.
+
+Para publicar una nueva versión, alcanza con:
+1. Actualizar `version` en `pyproject.toml` (ej. `"1.1.0"`).
+2. Hacer push a `main`.
+
+El workflow se dispara solo al detectar el cambio en `pyproject.toml` (también se puede ejecutar manualmente desde **Actions** → **Release** → **Run workflow**). Antes de compilar, chequea si el tag `v<version>` ya existe: si es así, no hace nada (evita releases duplicados si `pyproject.toml` cambia por otro motivo sin tocar la versión). Si la versión es nueva, compila, verifica y publica el Release con el tag `v<version>` y los binarios `gmaps-scraper-linux-x64`, `gmaps-scraper-windows-x64.exe` y `gmaps-scraper-macos-arm64`.
+
+Para probar el build localmente antes de correr el workflow:
+```bash
+pip install -r requirements.txt pyinstaller
+pyinstaller app.py --name gmaps-scraper --onefile --collect-all playwright --collect-data folium \
+  --add-data "templates:templates" --add-data "static:static"   # en Windows usar ; en vez de :
+./dist/gmaps-scraper
+```
 
 ## Licencia
 MIT
