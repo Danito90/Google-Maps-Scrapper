@@ -284,6 +284,25 @@ def _buscar_en_maps(page: Page, search_for: str, total: int) -> List[Page]:
     return []
 
 
+def _asegurar_chromium_instalado() -> None:
+    """Instala Chromium de Playwright si falta. Se invoca en el mismo proceso (no vía
+    subprocess+sys.executable, que no funciona dentro de un binario PyInstaller, ya que
+    ahí sys.executable apunta al propio binario y no a un intérprete de Python real)."""
+    import sys as _sys
+
+    from playwright.__main__ import main as playwright_main
+
+    logging.info("Chromium no está instalado. Instalando automáticamente (puede tardar unos minutos)...")
+    argv_original = _sys.argv
+    try:
+        _sys.argv = ["playwright", "install", "chromium"]
+        playwright_main()
+    except SystemExit:
+        pass  # playwright.__main__ termina con sys.exit(0) al finalizar OK
+    finally:
+        _sys.argv = argv_original
+
+
 def scrape_places(
     search_for: str,
     total: int,
@@ -296,7 +315,13 @@ def scrape_places(
     if on_progress:
         on_progress(0, total)
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        try:
+            browser = p.chromium.launch(headless=headless)
+        except Exception as e:
+            if "Executable doesn't exist" not in str(e):
+                raise
+            _asegurar_chromium_instalado()
+            browser = p.chromium.launch(headless=headless)  # un solo reintento, sin loop
         page = browser.new_page()
         try:
             page.goto("https://www.google.com/maps/@32.9817464,70.1930781,3.67z?", timeout=60000)

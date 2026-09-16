@@ -4,4 +4,7 @@ result.csv
 output.csv
 playwright/.cache/
 exports/
-*.pdf 
+*.pdf
+dist/
+build/
+*.spec 

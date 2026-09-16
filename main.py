@@ -1,3 +1,13 @@
+import os
+from pathlib import Path
+
+# Debe fijarse antes de importar scraper (que importa playwright.sync_api): en un binario
+# empaquetado con PyInstaller, Playwright puede resolver su cache de navegadores de forma
+# menos predecible, así que se fuerza una ubicación determinística.
+if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
+    _base_navegadores = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "gmaps-scraper" / "ms-playwright"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(_base_navegadores)
+
 import argparse
 
 from exporters import save_places_map, save_places_map_image, save_places_to_csv, save_places_to_excel

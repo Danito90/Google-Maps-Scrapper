@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: gmaps-scraper-linux-x64
+          - os: windows-latest
+            name: gmaps-scraper-windows-x64
+          - os: macos-14 # runner Apple Silicon nativo (arm64); macos-13 y anteriores son Intel
+            name: gmaps-scraper-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build binario
+        run: pyinstaller main.py --name "${{ matrix.name }}" --onefile --collect-all playwright --collect-data folium
+
+      - name: Resolver ruta del binario (PyInstaller agrega .exe solo en Windows)
+        id: asset
+        shell: bash
+        run: |
+          BIN="dist/${{ matrix.name }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then BIN="${BIN}.exe"; fi
+          echo "path=$BIN" >> "$GITHUB_OUTPUT"
+
+      - name: Verificar binario
+        shell: bash
+        run: |
+          "${{ steps.asset.outputs.path }}" --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ steps.asset.outputs.path }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Leer versión de pyproject.toml
+        id: version
+        shell: python
+        run: |
+          import tomllib, os
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={data['project']['version']}\n")
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist-all
+          merge-multiple: true
+
+      - name: Crear y publicar el tag
+        run: |
+          git tag v${{ steps.version.outputs.version }}
+          git push origin v${{ steps.version.outputs.version }}
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Scrapping CLI v${{ steps.version.outputs.version }}"
+          generate_release_notes: true
+          files: dist-all/*

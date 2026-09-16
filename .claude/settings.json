@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(mkdir -p test_out)",
+      "Bash(./dist/gmaps-scraper.exe -s \"panaderias en Puebla Mexico\" -t 1 --headless -o test_out/binario.csv --xlsx test_out/binario.xlsx --mapa test_out/binario_mapa.html --mapa-imagen test_out/binario_mapa.png)"
+    ]
+  }
+}

@@ -21,6 +21,7 @@ Para un proyecto de web scraping a medida me pueden encontrar en Upwork o Linked
 - [Interfaz web](#interfaz-web)
 - [Línea de comandos (CLI)](#línea-de-comandos-cli)
 - [Notas](#notas)
+- [Generar un release (binarios)](#generar-un-release-binarios)
 - [Licencia](#licencia)
 
 ## Requisitos previos
@@ -108,9 +109,25 @@ python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.
 ## Notas
 - Por defecto el CLI abre una ventana visible del navegador (útil para depurar); usá `--headless` para ocultarla. La interfaz web usa headless por defecto.
 - El CSV se guarda codificado en UTF-8 con BOM (`utf-8-sig`) para que Excel en Windows muestre bien tildes y la ñ.
-- El mapa usa teselas de CartoDB (no las de `tile.openstreetmap.org` directamente), ya que esas suelen bloquear el acceso a apps que no cumplen con su política de uso.
+- El mapa usa teselas de OpenStreetMap France (`tile.openstreetmap.fr`), gratuitas y sin API key, en vez de `tile.openstreetmap.org` directamente (que bloquea a apps que no cumplen con su política de uso) o CartoDB (que ahora exige API key).
 - El DOM de Google Maps puede cambiar y romper el scraper. Si deja de funcionar, revisá los XPaths en `scraper.py`.
 - Evitá correr muchas búsquedas seguidas en poco tiempo para no ser bloqueado por Google.
+
+## Generar un release (binarios)
+
+El workflow `.github/workflows/release.yml` compila `main.py` como un binario standalone (sin Chromium empaquetado: lo instala solo la primera vez que se ejecuta) para Linux, Windows y macOS (Apple Silicon), y publica un GitHub Release con los tres adjuntos.
+
+Para publicar una nueva versión:
+1. Actualizá `version` en `pyproject.toml` (ej. `"1.1.0"`).
+2. Andá a la pestaña **Actions** del repositorio → workflow **Release** → **Run workflow**.
+3. Al terminar, quedan creados el tag `v<version>` y el Release con los binarios `gmaps-scraper-linux-x64`, `gmaps-scraper-windows-x64.exe` y `gmaps-scraper-macos-arm64`.
+
+Para probar el build localmente antes de correr el workflow:
+```bash
+pip install -r requirements.txt pyinstaller
+pyinstaller main.py --name gmaps-scraper --onefile --collect-all playwright --collect-data folium
+./dist/gmaps-scraper --help
+```
 
 ## Licencia
 MIT
