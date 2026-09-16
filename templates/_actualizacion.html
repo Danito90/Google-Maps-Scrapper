@@ -1,51 +1,102 @@
-<div id="banner-actualizacion" class="banner-actualizacion" style="display:none;">
-    <p id="texto-actualizacion"></p>
-    <button id="boton-descargar-actualizacion" class="boton" type="button">Descargar actualización</button>
+<div id="banner-actualizacion" class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+    <div class="flex items-center gap-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-slate-400">
+            <path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16" />
+        </svg>
+        <p id="texto-actualizacion" class="text-sm text-slate-600"></p>
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+        <button id="boton-buscar-actualizacion" type="button"
+            class="rounded-lg border border-slate-300 px-3.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+            Buscar actualización
+        </button>
+        <button id="boton-descargar-actualizacion" type="button"
+            class="hidden rounded-lg bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
+            Descargar actualización
+        </button>
+    </div>
 </div>
 
 <script>
     (function () {
-        const banner = document.getElementById("banner-actualizacion");
         const texto = document.getElementById("texto-actualizacion");
-        const boton = document.getElementById("boton-descargar-actualizacion");
+        const botonBuscar = document.getElementById("boton-buscar-actualizacion");
+        const botonDescargar = document.getElementById("boton-descargar-actualizacion");
+        let intervaloDescarga = null;
 
-        async function chequearActualizacion() {
-            try {
-                const respuesta = await fetch("{{ url_for('actualizacion') }}");
-                const datos = await respuesta.json();
-
-                if (!datos.disponible && datos.estado_descarga === "idle") {
-                    banner.style.display = "none";
-                    return;
-                }
-
-                banner.style.display = "block";
-                if (datos.estado_descarga === "lista") {
-                    texto.textContent = `Descarga completa (${datos.ruta_descargada}). Cerrá esta app y abrí ese archivo para actualizar a la v${datos.version_nueva}.`;
-                    boton.style.display = "none";
-                } else if (datos.estado_descarga === "descargando") {
-                    texto.textContent = `Descargando la versión ${datos.version_nueva}...`;
-                    boton.style.display = "none";
-                } else if (datos.estado_descarga === "error") {
-                    texto.textContent = `No se pudo descargar la actualización: ${datos.error_descarga}`;
-                    boton.style.display = "inline-block";
-                } else if (datos.disponible) {
-                    texto.textContent = `Hay una nueva versión disponible: v${datos.version_nueva} (actual v${datos.version_actual}).`;
-                    boton.style.display = "inline-block";
-                }
-            } catch (e) {
-                // Si falla el chequeo (sin conexión, etc.) no interrumpe el uso normal de la app.
+        function pintar(datos) {
+            if (datos.estado_descarga === "lista") {
+                texto.textContent = `Descarga completa (${datos.ruta_descargada}). Cerrá esta app y abrí ese archivo para actualizar a la v${datos.version_nueva}.`;
+                botonBuscar.classList.add("hidden");
+                botonDescargar.classList.add("hidden");
+            } else if (datos.estado_descarga === "descargando") {
+                texto.textContent = `Descargando la versión ${datos.version_nueva}...`;
+                botonBuscar.classList.add("hidden");
+                botonDescargar.classList.add("hidden");
+            } else if (datos.estado_descarga === "error") {
+                texto.textContent = `No se pudo descargar la actualización: ${datos.error_descarga}`;
+                botonBuscar.classList.remove("hidden");
+                botonDescargar.classList.remove("hidden");
+            } else if (datos.disponible) {
+                texto.textContent = `Hay una nueva versión disponible: v${datos.version_nueva} (actual v${datos.version_actual}).`;
+                botonBuscar.classList.remove("hidden");
+                botonDescargar.classList.remove("hidden");
+            } else {
+                texto.textContent = datos.version_actual ? `Versión actual: v${datos.version_actual}` : "";
+                botonBuscar.classList.remove("hidden");
+                botonDescargar.classList.add("hidden");
             }
         }
 
-        boton.addEventListener("click", async () => {
-            boton.disabled = true;
-            await fetch("{{ url_for('actualizacion_descargar') }}", { method: "POST" });
-            boton.disabled = false;
-            chequearActualizacion();
+        // Consulta el estado guardado en el servidor. NO dispara una verificación nueva
+        // contra GitHub: eso solo pasa al iniciar la app o al tocar "Buscar actualización".
+        async function consultarEstado() {
+            try {
+                const respuesta = await fetch("{{ url_for('actualizacion') }}");
+                pintar(await respuesta.json());
+            } catch (e) {
+                // Sin conexión u otro error puntual: no interrumpe el uso normal de la app.
+            }
+        }
+
+        // Mientras la descarga está en curso, consulta cada 2s solo para saber cuándo
+        // termina (se corta sola en cuanto deja de estar "descargando").
+        function seguirDescargaHastaQueTermine() {
+            if (intervaloDescarga) return;
+            intervaloDescarga = setInterval(async () => {
+                try {
+                    const respuesta = await fetch("{{ url_for('actualizacion') }}");
+                    const datos = await respuesta.json();
+                    pintar(datos);
+                    if (datos.estado_descarga !== "descargando") {
+                        clearInterval(intervaloDescarga);
+                        intervaloDescarga = null;
+                    }
+                } catch (e) {
+                    // reintenta en el próximo tick
+                }
+            }, 2000);
+        }
+
+        botonBuscar.addEventListener("click", async () => {
+            botonBuscar.disabled = true;
+            texto.textContent = "Buscando actualizaciones...";
+            try {
+                const respuesta = await fetch("{{ url_for('actualizacion_buscar') }}", { method: "POST" });
+                pintar(await respuesta.json());
+            } catch (e) {
+                texto.textContent = "No se pudo buscar actualizaciones.";
+            }
+            botonBuscar.disabled = false;
         });
 
-        chequearActualizacion();
-        setInterval(chequearActualizacion, 5000);
+        botonDescargar.addEventListener("click", async () => {
+            botonDescargar.disabled = true;
+            const respuesta = await fetch("{{ url_for('actualizacion_descargar') }}", { method: "POST" });
+            pintar(await respuesta.json());
+            seguirDescargaHastaQueTermine();
+        });
+
+        consultarEstado(); // única verificación automática: al entrar a la app
     })();
 </script>

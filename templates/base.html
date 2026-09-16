@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block titulo %}Google Maps Scraper{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: "#eff6ff", 100: "#dbeafe", 200: "#bfdbfe", 300: "#93c5fd",
+                            400: "#60a5fa", 500: "#3b82f6", 600: "#1a73e8", 700: "#1558b3",
+                            800: "#134693", 900: "#173a75"
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+</head>
+<body class="h-full bg-slate-50 text-slate-900 antialiased">
+    <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <header class="mb-8 flex items-center gap-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+                    <path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11Z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                </svg>
+            </span>
+            <div>
+                <h1 class="text-lg font-semibold tracking-tight text-slate-900">Google Maps Scraper</h1>
+                <p class="text-sm text-slate-500">Extraé, visualizá y exportá negocios de Google Maps</p>
+            </div>
+        </header>
+
+        {% include "_actualizacion.html" %}
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

@@ -211,6 +211,14 @@ def actualizacion():
     return jsonify(ACTUALIZACION)
 
 
+@app.route("/actualizacion/buscar", methods=["POST"])
+def actualizacion_buscar():
+    """Chequeo manual, disparado por el botón "Buscar actualización" (no hay polling
+    automático: la app solo verifica al iniciar y cuando el usuario lo pide)."""
+    ACTUALIZACION.update(buscar_nueva_version())
+    return jsonify(ACTUALIZACION)
+
+
 @app.route("/actualizacion/descargar", methods=["POST"])
 def actualizacion_descargar():
     if ACTUALIZACION["disponible"] and ACTUALIZACION["estado_descarga"] in ("idle", "error"):
