@@ -1,0 +1,51 @@
+<div id="banner-actualizacion" class="banner-actualizacion" style="display:none;">
+    <p id="texto-actualizacion"></p>
+    <button id="boton-descargar-actualizacion" class="boton" type="button">Descargar actualización</button>
+</div>
+
+<script>
+    (function () {
+        const banner = document.getElementById("banner-actualizacion");
+        const texto = document.getElementById("texto-actualizacion");
+        const boton = document.getElementById("boton-descargar-actualizacion");
+
+        async function chequearActualizacion() {
+            try {
+                const respuesta = await fetch("{{ url_for('actualizacion') }}");
+                const datos = await respuesta.json();
+
+                if (!datos.disponible && datos.estado_descarga === "idle") {
+                    banner.style.display = "none";
+                    return;
+                }
+
+                banner.style.display = "block";
+                if (datos.estado_descarga === "lista") {
+                    texto.textContent = `Descarga completa (${datos.ruta_descargada}). Cerrá esta app y abrí ese archivo para actualizar a la v${datos.version_nueva}.`;
+                    boton.style.display = "none";
+                } else if (datos.estado_descarga === "descargando") {
+                    texto.textContent = `Descargando la versión ${datos.version_nueva}...`;
+                    boton.style.display = "none";
+                } else if (datos.estado_descarga === "error") {
+                    texto.textContent = `No se pudo descargar la actualización: ${datos.error_descarga}`;
+                    boton.style.display = "inline-block";
+                } else if (datos.disponible) {
+                    texto.textContent = `Hay una nueva versión disponible: v${datos.version_nueva} (tenés v${datos.version_actual}).`;
+                    boton.style.display = "inline-block";
+                }
+            } catch (e) {
+                // Si falla el chequeo (sin conexión, etc.) no interrumpe el uso normal de la app.
+            }
+        }
+
+        boton.addEventListener("click", async () => {
+            boton.disabled = true;
+            await fetch("{{ url_for('actualizacion_descargar') }}", { method: "POST" });
+            boton.disabled = false;
+            chequearActualizacion();
+        });
+
+        chequearActualizacion();
+        setInterval(chequearActualizacion, 5000);
+    })();
+</script>

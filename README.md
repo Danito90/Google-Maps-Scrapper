@@ -117,6 +117,8 @@ python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.
 
 El workflow `.github/workflows/release.yml` compila `app.py` (la interfaz web) como un binario standalone para Linux, Windows y macOS (Apple Silicon), y publica un GitHub Release con los tres adjuntos. Al abrir el binario se levanta el servidor y se abre solo el navegador en `http://127.0.0.1:5000` — queda corriendo (con una consola visible) hasta que se cierra la ventana. Chromium no viene empaquetado (pesaría cientos de MB): se instala solo la primera vez que se hace una búsqueda.
 
+**Aviso de nuevas versiones**: al abrir la app, en segundo plano consulta el último release de GitHub. Si hay una versión más nueva, muestra un banner arriba de la página con un botón para descargar el binario correspondiente al sistema operativo actual (queda guardado junto al ejecutable). La instalación en sí queda en manos del usuario: cerrar la app y abrir el archivo nuevo (no hay auto-reemplazo, ya que el sistema operativo no deja sobrescribir un ejecutable mientras está corriendo).
+
 Para publicar una nueva versión, alcanza con:
 1. Actualizar `version` en `pyproject.toml` (ej. `"1.1.0"`).
 2. Hacer push a `main`.
@@ -127,7 +129,7 @@ Para probar el build localmente antes de correr el workflow:
 ```bash
 pip install -r requirements.txt pyinstaller
 pyinstaller app.py --name gmaps-scraper --onefile --collect-all playwright --collect-data folium \
-  --add-data "templates:templates" --add-data "static:static"   # en Windows usar ; en vez de :
+  --add-data "templates:templates" --add-data "static:static" --add-data "pyproject.toml:."   # en Windows usar ; en vez de :
 ./dist/gmaps-scraper
 ```
 

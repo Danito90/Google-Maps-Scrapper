@@ -15,6 +15,7 @@ if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
 
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
+from actualizador import buscar_nueva_version, descargar_actualizacion
 from exporters import (
     COLUMN_LABELS_ES,
     COLUMN_ORDER,
@@ -58,6 +59,34 @@ ESTADO = {
 }
 
 PROGRESO = {"actual": 0, "total": 0}
+
+ACTUALIZACION = {
+    "disponible": False,
+    "version_actual": None,
+    "version_nueva": None,
+    "notas": "",
+    "asset_url": None,
+    "asset_name": None,
+    "estado_descarga": "idle",  # idle | descargando | lista | error
+    "ruta_descargada": None,
+    "error_descarga": None,
+}
+
+
+def _chequear_actualizacion_en_segundo_plano():
+    ACTUALIZACION.update(buscar_nueva_version())
+
+
+def _descargar_actualizacion_en_segundo_plano():
+    ACTUALIZACION["estado_descarga"] = "descargando"
+    ACTUALIZACION["error_descarga"] = None
+    try:
+        ruta = descargar_actualizacion(ACTUALIZACION["asset_url"], ACTUALIZACION["asset_name"])
+        ACTUALIZACION["ruta_descargada"] = ruta
+        ACTUALIZACION["estado_descarga"] = "lista"
+    except Exception as e:
+        ACTUALIZACION["error_descarga"] = str(e)
+        ACTUALIZACION["estado_descarga"] = "error"
 
 
 def _ejecutar_busqueda(params):
@@ -175,7 +204,21 @@ def descargar_mapa():
     return send_file(ESTADO["mapa_imagen_path"], as_attachment=True, download_name="mapa_google_maps.png")
 
 
+@app.route("/actualizacion")
+def actualizacion():
+    return jsonify(ACTUALIZACION)
+
+
+@app.route("/actualizacion/descargar", methods=["POST"])
+def actualizacion_descargar():
+    if ACTUALIZACION["disponible"] and ACTUALIZACION["estado_descarga"] in ("idle", "error"):
+        threading.Thread(target=_descargar_actualizacion_en_segundo_plano, daemon=True).start()
+    return jsonify(ACTUALIZACION)
+
+
 if __name__ == "__main__":
+    threading.Thread(target=_chequear_actualizacion_en_segundo_plano, daemon=True).start()
+
     if FROZEN:
         # use_reloader=False es obligatorio: el reloader de Flask re-ejecuta el propio
         # proceso, y en un binario PyInstaller eso relanza el ejecutable entero de nuevo.

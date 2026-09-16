@@ -64,7 +64,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Build binario (empaqueta la app web, incluyendo templates/ y static/)
+      - name: Build binario (empaqueta la app web, templates/, static/ y pyproject.toml)
         shell: bash
         run: |
           SEP=":"
@@ -72,7 +72,8 @@ jobs:
           pyinstaller app.py --name "${{ matrix.name }}" --onefile \
             --collect-all playwright --collect-data folium \
             --add-data "templates${SEP}templates" \
-            --add-data "static${SEP}static"
+            --add-data "static${SEP}static" \
+            --add-data "pyproject.toml${SEP}."
 
       - name: Resolver ruta del binario (PyInstaller agrega .exe solo en Windows)
         id: asset

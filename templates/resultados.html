@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
 </head>
 <body>
+    {% include "_actualizacion.html" %}
     <div class="contenedor ancho">
         <h1>Resultados</h1>
         <p><a href="{{ url_for('formulario') }}">&larr; Nueva búsqueda</a></p>

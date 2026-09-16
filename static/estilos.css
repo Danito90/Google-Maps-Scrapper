@@ -88,6 +88,30 @@ progress {
     accent-color: #1a73e8;
 }
 
+.banner-actualizacion {
+    max-width: 1100px;
+    margin: 0 auto 16px auto;
+    background: #e8f0fe;
+    border: 1px solid #1a73e8;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.banner-actualizacion p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.banner-actualizacion .boton {
+    margin: 0;
+    white-space: nowrap;
+}
+
 .error {
     color: #b3261e;
 }
