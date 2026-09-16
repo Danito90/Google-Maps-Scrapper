@@ -1,39 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Google Maps Scraper</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='estilos.css') }}">
-</head>
-<body>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='estilos.css') }}"
+    />
+  </head>
+  <body>
     {% include "_actualizacion.html" %}
     <div class="contenedor">
-        <h1>Google Maps Scraper</h1>
-        <p>Buscá negocios en Google Maps, visualizalos en un mapa y exportá los resultados a CSV o Excel.</p>
+      <h1>Google Maps Scraper</h1>
+      <p>
+        Buscá negocios en Google Maps, visualizalos en un mapa y exportá los
+        resultados a CSV o Excel.
+      </p>
 
+      <form action="{{ url_for('buscar') }}" method="post">
+        <label for="busqueda">Término de búsqueda</label>
+        <input
+          type="text"
+          id="busqueda"
+          name="busqueda"
+          placeholder="Ej: panaderías en Junín"
+          required
+        />
+
+        <label for="total">Cantidad de resultados</label>
+        <input
+          type="number"
+          id="total"
+          name="total"
+          min="1"
+          value="5"
+          required
+        />
+
+        <label class="checkbox">
+          <input type="checkbox" name="buscar_email" />
+          Buscar email en el sitio web de cada negocio (más lento, no siempre
+          disponible)
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" name="headless" checked />
+          Modo invisible (headless, sin ventana visible del navegador)
+        </label>
+
+        <button type="submit">Buscar</button>
         {% if hay_busqueda_previa %}
-            <p><a class="boton" href="{{ url_for('resultados') }}">Ver última búsqueda</a></p>
+        <p>
+          <a class="boton" href="{{ url_for('resultados') }}"
+            >Ver última búsqueda</a
+          >
+        </p>
         {% endif %}
-
-        <form action="{{ url_for('buscar') }}" method="post">
-            <label for="busqueda">Término de búsqueda</label>
-            <input type="text" id="busqueda" name="busqueda" placeholder="Ej: panaderías en Junín" required>
-
-            <label for="total">Cantidad de resultados</label>
-            <input type="number" id="total" name="total" min="1" value="5" required>
-
-            <label class="checkbox">
-                <input type="checkbox" name="buscar_email">
-                Buscar email en el sitio web de cada negocio (más lento, no siempre disponible)
-            </label>
-
-            <label class="checkbox">
-                <input type="checkbox" name="headless" checked>
-                Modo invisible (headless, sin ventana visible del navegador)
-            </label>
-
-            <button type="submit">Buscar</button>
-        </form>
+      </form>
     </div>
-</body>
+  </body>
 </html>

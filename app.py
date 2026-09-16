@@ -1,4 +1,5 @@
 import os
+import socket
 import sys
 import threading
 import webbrowser
@@ -217,7 +218,36 @@ def actualizacion_descargar():
     return jsonify(ACTUALIZACION)
 
 
+PUERTO = 5000
+
+
+def _puerto_realmente_libre(puerto: int, host: str = "127.0.0.1") -> bool:
+    """Chequea si el puerto está libre de verdad, sin SO_REUSEADDR. En Windows, el
+    servidor de desarrollo de Flask/Werkzeug activa SO_REUSEADDR, lo que permite que dos
+    procesos se "bindeen" al mismo puerto sin error (a diferencia de Linux): el segundo
+    proceso arranca en apariencia bien, pero nunca recibe tráfico real, porque el sistema
+    operativo lo sigue enrutando a la instancia vieja. Por eso este chequeo se hace con un
+    socket aparte que NO usa SO_REUSEADDR, para detectar instancias previas de verdad."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, puerto))
+            return True
+        except OSError:
+            return False
+
+
 if __name__ == "__main__":
+    if FROZEN and not _puerto_realmente_libre(PUERTO):
+        print(f"Ya hay otra instancia de Google Maps Scraper corriendo en el puerto {PUERTO}.")
+        print("Cerrala (buscá 'gmaps-scraper' en el Administrador de tareas) antes de abrir esta versión.")
+        if os.environ.get("CI") != "true":
+            webbrowser.open(f"http://127.0.0.1:{PUERTO}/")
+            try:
+                input("Presioná Enter para cerrar esta ventana...")
+            except (EOFError, KeyboardInterrupt):
+                pass  # sin consola interactiva (o cerrada); no hay nada más que hacer acá
+        sys.exit(0)
+
     threading.Thread(target=_chequear_actualizacion_en_segundo_plano, daemon=True).start()
 
     if FROZEN:
@@ -226,7 +256,7 @@ if __name__ == "__main__":
         # os.environ["CI"] lo fija automáticamente GitHub Actions: evita intentar abrir un
         # navegador (no hay ninguno) durante la verificación del binario en el workflow.
         if os.environ.get("CI") != "true":
-            threading.Timer(1.5, lambda: webbrowser.open("http://127.0.0.1:5000/")).start()
-        app.run(debug=False, use_reloader=False, threaded=True)
+            threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{PUERTO}/")).start()
+        app.run(host="127.0.0.1", port=PUERTO, debug=False, use_reloader=False, threaded=True)
     else:
         app.run(debug=True, threaded=True)

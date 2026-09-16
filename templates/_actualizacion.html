@@ -30,7 +30,7 @@
                     texto.textContent = `No se pudo descargar la actualización: ${datos.error_descarga}`;
                     boton.style.display = "inline-block";
                 } else if (datos.disponible) {
-                    texto.textContent = `Hay una nueva versión disponible: v${datos.version_nueva} (tenés v${datos.version_actual}).`;
+                    texto.textContent = `Hay una nueva versión disponible: v${datos.version_nueva} (actual v${datos.version_actual}).`;
                     boton.style.display = "inline-block";
                 }
             } catch (e) {
