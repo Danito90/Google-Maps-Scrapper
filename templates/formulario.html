@@ -10,6 +10,11 @@
     <div class="contenedor">
         <h1>Google Maps Scraper</h1>
         <p>Buscá negocios en Google Maps, visualizalos en un mapa y exportá los resultados a CSV o Excel.</p>
+
+        {% if hay_busqueda_previa %}
+            <p><a class="boton" href="{{ url_for('resultados') }}">Ver última búsqueda</a></p>
+        {% endif %}
+
         <form action="{{ url_for('buscar') }}" method="post">
             <label for="busqueda">Término de búsqueda</label>
             <input type="text" id="busqueda" name="busqueda" placeholder="Ej: panaderías en Junín" required>

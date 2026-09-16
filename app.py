@@ -122,7 +122,8 @@ def _ejecutar_busqueda(params):
 
 @app.route("/")
 def formulario():
-    return render_template("formulario.html")
+    hay_busqueda_previa = ESTADO["status"] in ("listo", "error") and bool(ESTADO["places"] or ESTADO["error"])
+    return render_template("formulario.html", hay_busqueda_previa=hay_busqueda_previa)
 
 
 @app.route("/buscar", methods=["POST"])
