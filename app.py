@@ -1,6 +1,17 @@
 import os
+import sys
 import threading
+import webbrowser
 from dataclasses import asdict
+from pathlib import Path
+
+# Debe fijarse antes de importar scraper (que importa playwright.sync_api): en el binario
+# empaquetado con PyInstaller, Playwright puede resolver su cache de navegadores de forma
+# menos predecible, así que se fuerza una ubicación determinística.
+FROZEN = getattr(sys, "frozen", False)
+if "PLAYWRIGHT_BROWSERS_PATH" not in os.environ:
+    _base_navegadores = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "gmaps-scraper" / "ms-playwright"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(_base_navegadores)
 
 from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 
@@ -14,9 +25,22 @@ from exporters import (
 )
 from scraper import scrape_places
 
-app = Flask(__name__)
 
-EXPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
+def _ruta_recurso(relativa: str) -> str:
+    """Resuelve templates/static tanto en desarrollo como dentro de un binario
+    PyInstaller --onefile (donde los datos empaquetados se extraen a sys._MEIPASS)."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, relativa)
+
+
+app = Flask(__name__, template_folder=_ruta_recurso("templates"), static_folder=_ruta_recurso("static"))
+
+if FROZEN:
+    # Junto al ejecutable, no en la carpeta temporal de extracción (_MEIPASS se borra al
+    # cerrar la app), para que el usuario encuentre sus descargas fácilmente.
+    EXPORTS_DIR = os.path.join(os.path.dirname(sys.executable), "exports")
+else:
+    EXPORTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
 CSV_PATH = os.path.join(EXPORTS_DIR, "resultados.csv")
 XLSX_PATH = os.path.join(EXPORTS_DIR, "resultados.xlsx")
 MAPA_PATH = os.path.join(EXPORTS_DIR, "mapa.html")
@@ -152,4 +176,13 @@ def descargar_mapa():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, threaded=True)
+    if FROZEN:
+        # use_reloader=False es obligatorio: el reloader de Flask re-ejecuta el propio
+        # proceso, y en un binario PyInstaller eso relanza el ejecutable entero de nuevo.
+        # os.environ["CI"] lo fija automáticamente GitHub Actions: evita intentar abrir un
+        # navegador (no hay ninguno) durante la verificación del binario en el workflow.
+        if os.environ.get("CI") != "true":
+            threading.Timer(1.5, lambda: webbrowser.open("http://127.0.0.1:5000/")).start()
+        app.run(debug=False, use_reloader=False, threaded=True)
+    else:
+        app.run(debug=True, threaded=True)

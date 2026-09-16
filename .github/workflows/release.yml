@@ -2,12 +2,46 @@ name: Release
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - pyproject.toml
 
 permissions:
   contents: write
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      ya_existe: ${{ steps.check.outputs.ya_existe }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Leer versión de pyproject.toml
+        id: version
+        shell: python
+        run: |
+          import tomllib, os
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={data['project']['version']}\n")
+
+      - name: Verificar si el tag ya existe
+        id: check
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/v${{ steps.version.outputs.version }}$"; then
+            echo "El tag v${{ steps.version.outputs.version }} ya existe, no se crea un release nuevo."
+            echo "ya_existe=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ya_existe=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: check-version
+    if: needs.check-version.outputs.ya_existe != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -30,8 +64,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Build binario
-        run: pyinstaller main.py --name "${{ matrix.name }}" --onefile --collect-all playwright --collect-data folium
+      - name: Build binario (empaqueta la app web, incluyendo templates/ y static/)
+        shell: bash
+        run: |
+          SEP=":"
+          if [ "${{ runner.os }}" = "Windows" ]; then SEP=";"; fi
+          pyinstaller app.py --name "${{ matrix.name }}" --onefile \
+            --collect-all playwright --collect-data folium \
+            --add-data "templates${SEP}templates" \
+            --add-data "static${SEP}static"
 
       - name: Resolver ruta del binario (PyInstaller agrega .exe solo en Windows)
         id: asset
@@ -41,10 +82,20 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then BIN="${BIN}.exe"; fi
           echo "path=$BIN" >> "$GITHUB_OUTPUT"
 
-      - name: Verificar binario
+      - name: Verificar binario (levanta el servidor y hace una petición HTTP)
         shell: bash
         run: |
-          "${{ steps.asset.outputs.path }}" --help
+          "${{ steps.asset.outputs.path }}" &
+          for i in $(seq 1 30); do
+            codigo=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/ || true)
+            if [ "$codigo" = "200" ]; then
+              echo "El servidor respondió correctamente (HTTP 200)."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "El servidor no respondió a tiempo."
+          exit 1
 
       - uses: actions/upload-artifact@v4
         with:
@@ -52,20 +103,11 @@ jobs:
           path: ${{ steps.asset.outputs.path }}
 
   release:
-    needs: build
+    needs: [check-version, build]
+    if: needs.check-version.outputs.ya_existe != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Leer versión de pyproject.toml
-        id: version
-        shell: python
-        run: |
-          import tomllib, os
-          with open("pyproject.toml", "rb") as f:
-              data = tomllib.load(f)
-          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
-              out.write(f"version={data['project']['version']}\n")
 
       - uses: actions/download-artifact@v4
         with:
@@ -74,12 +116,12 @@ jobs:
 
       - name: Crear y publicar el tag
         run: |
-          git tag v${{ steps.version.outputs.version }}
-          git push origin v${{ steps.version.outputs.version }}
+          git tag v${{ needs.check-version.outputs.version }}
+          git push origin v${{ needs.check-version.outputs.version }}
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: "Scrapping CLI v${{ steps.version.outputs.version }}"
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: "Google Maps Scraper v${{ needs.check-version.outputs.version }}"
           generate_release_notes: true
           files: dist-all/*

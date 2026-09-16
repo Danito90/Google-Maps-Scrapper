@@ -115,18 +115,20 @@ python main.py -s "Restaurantes turcos en Toronto Canada" -t 20 -o restaurantes.
 
 ## Generar un release (binarios)
 
-El workflow `.github/workflows/release.yml` compila `main.py` como un binario standalone (sin Chromium empaquetado: lo instala solo la primera vez que se ejecuta) para Linux, Windows y macOS (Apple Silicon), y publica un GitHub Release con los tres adjuntos.
+El workflow `.github/workflows/release.yml` compila `app.py` (la interfaz web) como un binario standalone para Linux, Windows y macOS (Apple Silicon), y publica un GitHub Release con los tres adjuntos. Al abrir el binario se levanta el servidor y se abre solo el navegador en `http://127.0.0.1:5000` — queda corriendo (con una consola visible) hasta que se cierra la ventana. Chromium no viene empaquetado (pesaría cientos de MB): se instala solo la primera vez que se hace una búsqueda.
 
-Para publicar una nueva versión:
-1. Actualizá `version` en `pyproject.toml` (ej. `"1.1.0"`).
-2. Andá a la pestaña **Actions** del repositorio → workflow **Release** → **Run workflow**.
-3. Al terminar, quedan creados el tag `v<version>` y el Release con los binarios `gmaps-scraper-linux-x64`, `gmaps-scraper-windows-x64.exe` y `gmaps-scraper-macos-arm64`.
+Para publicar una nueva versión, alcanza con:
+1. Actualizar `version` en `pyproject.toml` (ej. `"1.1.0"`).
+2. Hacer push a `main`.
+
+El workflow se dispara solo al detectar el cambio en `pyproject.toml` (también se puede ejecutar manualmente desde **Actions** → **Release** → **Run workflow**). Antes de compilar, chequea si el tag `v<version>` ya existe: si es así, no hace nada (evita releases duplicados si `pyproject.toml` cambia por otro motivo sin tocar la versión). Si la versión es nueva, compila, verifica y publica el Release con el tag `v<version>` y los binarios `gmaps-scraper-linux-x64`, `gmaps-scraper-windows-x64.exe` y `gmaps-scraper-macos-arm64`.
 
 Para probar el build localmente antes de correr el workflow:
 ```bash
 pip install -r requirements.txt pyinstaller
-pyinstaller main.py --name gmaps-scraper --onefile --collect-all playwright --collect-data folium
-./dist/gmaps-scraper --help
+pyinstaller app.py --name gmaps-scraper --onefile --collect-all playwright --collect-data folium \
+  --add-data "templates:templates" --add-data "static:static"   # en Windows usar ; en vez de :
+./dist/gmaps-scraper
 ```
 
 ## Licencia
