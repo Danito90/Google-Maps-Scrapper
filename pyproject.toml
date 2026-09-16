@@ -1,5 +1,5 @@
 [project]
 name = "gmaps-scraper"
-version = "1.3.1"
+version = "1.3.2"
 description = "Scraper de Google Maps con exportación a CSV/Excel y mapas"
 requires-python = ">=3.13"
